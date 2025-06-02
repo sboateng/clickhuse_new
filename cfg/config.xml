@@ -1,0 +1,112 @@
+<!-- This file was generated automatically.
+     Do not edit it: it is likely to be discarded and generated again before it's read next time.
+     Files used to generate this file:
+       config.xml      -->
+
+<!-- Config that is used when server is run without config file. -->
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <console>true</console>
+    </logger>
+
+    <!-- https://clickhouse.com/docs/en/operations/server-configuration-parameters/settings#listen_host -->
+    <listen_host>0.0.0.0</listen_host>
+
+    <interserver_http_port>9009</interserver_http_port>
+    <http_port>8123</http_port>
+    <tcp_port>9000</tcp_port>
+    <mysql_port>9004</mysql_port>
+
+    <path>./</path>
+
+    <mlock_executable>true</mlock_executable>
+
+    <users>
+        <default>
+            <password/>
+
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+
+            <profile>default</profile>
+            <quota>default</quota>
+
+            <access_management>1</access_management>
+            <named_collection_control>1</named_collection_control>
+        </default>
+    </users>
+
+    <profiles>
+        <default>
+            <max_query_size>150000</max_query_size>
+        </default>
+    </profiles>
+
+    <quotas>
+        <default/>
+    </quotas>
+
+    <!-- https://clickhouse.com/docs/en/engines/table-engines/special/distributed#distributed-clusters -->
+    <remote_servers>
+        <pcapflow>
+            <shard>
+                <weight>1</weight>
+                <!-- <name>shard_01</name> -->
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <priority>1</priority>
+                    <host>clickhouse-data-pw-1</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-data-tt-1</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <weight>1</weight>
+                <!-- <name>shard_02</name> -->
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-data-pw-2</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-data-tt-2</host>
+                    <port>9000</port>
+                    <!-- Removed <secure>1</secure> unless TLS is configured -->
+                </replica>
+            </shard>
+        </pcapflow>
+    </remote_servers>
+
+    <zookeeper>
+        <node>
+            <host>clickhouse-keeper-pw-1</host>
+            <port>2181</port>
+        </node>
+        <node>
+            <host>clickhouse-keeper-pw-2</host>
+            <port>2181</port>
+        </node>
+        <node>
+            <host>clickhouse-keeper-tt-1</host>
+            <port>2181</port>
+        </node>
+        <node>
+            <host>clickhouse-keeper-tt-2</host>
+            <port>2181</port>
+        </node>
+    </zookeeper>
+
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+
+    <macros>
+        <shard>shard1</shard>
+        <replica>replica1</replica>
+    </macros>
+</clickhouse>

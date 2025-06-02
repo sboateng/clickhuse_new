@@ -1,0 +1,99 @@
+<!-- This file was generated automatically.
+     Do not edit it: it is likely to be discarded and generated again before it's read next time.
+     Files used to generate this file:
+       config.xml      -->
+
+<!-- Config that is used when server is run without config file. -->
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <console>true</console>
+    </logger>
+
+    <!-- https://clickhouse.com/docs/operations/server-configuration-parameters/settings#listen_host -->
+    <listen_host>0.0.0.0</listen_host>
+
+    <http_port>8123</http_port>
+    <tcp_port>9000</tcp_port>
+    <mysql_port>9004</mysql_port>
+
+    <path>./</path>
+
+    <mlock_executable>true</mlock_executable>
+
+    <users>
+        <default>
+            <password/>
+
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+
+            <profile>default</profile>
+            <quota>default</quota>
+
+            <access_management>1</access_management>
+            <named_collection_control>1</named_collection_control>
+        </default>
+    </users>
+
+    <profiles>
+        <default/>
+    </profiles>
+<quotas>
+        <default/>
+    </quotas>
+
+    <!-- https://clickhouse.com/docs/engines/table-engines/special/distributed#distributed-clusters -->
+    <remote_servers>
+        <pcapflow>
+            <!-- Inter-server per-cluster secret for Distributed queries
+                default: no secret (no authentication will be performed)
+
+                If set, then Distributed queries will be validated on shards, so at least:
+                - such cluster should exist on the shard,
+                - such cluster should have the same secret.
+
+                And also (and which is more important), the initial_user will
+                be used as current user for the query.
+            -->
+            <!-- <secret></secret> -->
+
+            <!-- Optional. Whether distributed DDL queries (ON CLUSTER clause) are allowed for this cluster. Default: true (allowed). -->
+            <!-- <allow_distributed_ddl_queries>true</allow_distributed_ddl_queries> -->
+
+            <shard>
+                <!-- Optional. Shard weight when writing data. Default: 1. -->
+                <weight>1</weight>
+                <!-- Optional. The shard name.  Must be non-empty and unique among shards in the cluster. If not specified, will be empty. -->
+                <!-- <name>shard_01</name> -->
+                <!-- Optional. Whether to write data to just one of the replicas. Default: false (write data to all replicas). -->
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <!-- Optional. Priority of the replica for load balancing (see also load_balancing setting). Default: 1 (less value has more priority). -->
+                    <priority>1</priority>
+                    <host>clickhouse-data-pw-1</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-data-tt-1</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <weight>1</weight>
+                <!-- <name>shard_02</name> -->
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-data-pw-2</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-data-tt-2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </pcapflow>
+    </remote_servers>
+
+</clickhouse>

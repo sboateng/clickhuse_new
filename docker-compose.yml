@@ -1,0 +1,124 @@
+services:
+
+  clickhouse-query-pw:
+    build: .
+   # entrypoint: ["clickhouse-server", "--config-file", "/etc/clickhouse-server/query/query.xml"]
+    volumes:
+      - ./cfg/query:/etc/clickhouse-server/config.d/keeper.xml
+      - ./cfg/server/users.xml:/etc/clickhouse-server/users.xml
+      - ./query-data:/var/lib/clickhouse
+      - ./query-logs:/var/log/clickhouse-server
+    ports:
+      - "8123:8123"
+    networks:
+      - clicknet
+
+  clickhouse-data-pw-1:
+    build: .
+   # entrypoint: ["clickhouse-server", "--config-file", "/etc/clickhouse-server/server/pw-1.xml"]
+    volumes:
+     # - ./cfg:/etc/clickhouse-server
+      - ./cfg/server/pw-1.xml:/etc/clickhouse-server/config.xml
+      - ./cfg/server/users.xml:/etc/clickhouse-server/users.xml
+      - ./pw1-data:/var/lib/clickhouse
+      - ./pw1-logs:/var/log/clickhouse-server
+      - ./csv:/var/lib/clickhouse/user_files
+      - ./cfg/server/dictionaries:/etc/clickhouse-server/dictionaries
+    networks:
+      - clicknet
+
+  clickhouse-data-pw-2:
+    build: .
+#    entrypoint: ["clickhouse-server", "--config-file", "/etc/clickhouse-server/server/pw-2.xml"]
+    volumes:
+     # - ./cfg:/etc/clickhouse-server
+      - ./cfg/server/users.xml:/etc/clickhouse-server/users.xml
+      - ./pw2-data:/var/lib/clickhouse
+      - ./pw2-logs:/var/log/clickhouse-server
+      - ./cfg/server/pw-2.xml:/etc/clickhouse-server/config.xml
+      - ./cfg/server/dictionaries:/etc/clickhouse-server/dictionaries
+      - ./csv:/var/lib/clickhouse/user_files
+    networks:
+      - clicknet
+
+  clickhouse-data-tt-1:
+    build: .
+    #entrypoint: ["clickhouse-server", "--config-file", "/etc/clickhouse-server/server/tt-1.xml"]
+    volumes:
+     # - ./cfg:/etc/clickhouse-server
+      - ./cfg/server/users.xml:/etc/clickhouse-server/users.xml
+      - ./tt-1-data:/var/lib/clickhouse
+      - ./tt-1-logs:/var/log/clickhouse-server
+      - ./cfg/server/tt-1.xml:/etc/clickhouse-server/config.xml
+      - ./cfg/server/dictionaries:/etc/clickhouse-server/dictionaries
+      - ./csv:/var/lib/clickhouse/user_files
+    networks:
+      - clicknet
+
+  clickhouse-data-tt-2:
+    build: .
+    #entrypoint: ["clickhouse-server", "--config-file", "/etc/clickhouse-server/server/tt-2.xml"]
+    volumes:
+     # - ./cfg:/etc/clickhouse-server
+      - ./tt-2-data:/var/lib/clickhouse
+      - ./tt-2-logs:/var/log/clickhouse-server
+      - ./cfg/server/tt-2.xml:/etc/clickhouse-server/config.xml
+      - ./cfg/server/users.xml:/etc/clickhouse-server/users.xml
+      - ./cfg/server/dictionaries:/etc/clickhouse-server/dictionaries
+      - ./csv:/var/lib/clickhouse/user_files
+    networks:
+      - clicknet
+
+  clickhouse-keeper-pw-1:
+    image: clickhouse/clickhouse-server:25.4.5
+   # entrypoint: ["clickhouse-keeper", "--config-file", "/etc/clickhouse-server/keeper/pw-1.xml"]
+    volumes:
+#      - ./cfg:/etc/clickhouse-server
+      - ./keep-pw-1-data:/var/lib/clickhouse
+      - ./keep-pw-1-logs:/var/log/clickhouse-server
+      - ./cfg/config.d/keeper/keeper.pw-1.xml:/etc/clickhouse-server/config.d/keeper.xml
+    networks:
+      - clicknet
+
+  clickhouse-keeper-pw-2:
+    image: clickhouse/clickhouse-server:25.4.5
+    #entrypoint: ["clickhouse-keeper", "--config-file", "/etc/clickhouse-server/keeper/pw-2.xml"]
+    volumes:
+      - ./keep-pw-2-data:/var/lib/clickhouse
+      - ./keep-pw-2-logs:/var/log/clickhouse-server
+      - ./cfg/config.d/keeper/keeper.pw-2.xml:/etc/clickhouse-server/config.d/keeper.xml
+    networks:
+      - clicknet
+
+  clickhouse-keeper-tt-1:
+    image: clickhouse/clickhouse-server:25.4.5
+    #entrypoint: ["clickhouse-keeper", "--config-file", "/etc/clickhouse-server/keeper/tt-1.xml"]
+    volumes:
+      - ./keep-tt-1-data:/var/lib/clickhouse
+      - ./keep-tt-1-logs:/var/log/clickhouse-server
+      - ./cfg/config.d/keeper/keeper.tt-1.xml:/etc/clickhouse-server/config.d/keeper.xml
+    networks:
+      - clicknet
+
+  clickhouse-keeper-tt-2:
+    image: clickhouse/clickhouse-server:25.4.5
+    #entrypoint: ["clickhouse-keeper", "--config-file", "/etc/clickhouse-server/keeper/tt-2.xml"]
+    volumes:
+      - ./keep-tt-2-data:/var/lib/clickhouse
+      - ./keep-tt-2-logs:/var/log/clickhouse-server
+      - ./cfg/config.d/keeper/keeper.tt-2.xml:/etc/clickhouse-server/config.d/keeper.xml
+    networks:
+      - clicknet
+
+  clickhouse-client:
+    image: clickhouse/clickhouse-client:21.3.20
+    volumes:
+      - ./cfg/client-server:/etc/clickhouse-server
+      - ./client-server-data:/var/lib/clickhouse
+      - ./client-server-logs:/var/log/clickhouse-server
+    networks:
+      - clicknet
+
+networks:
+  clicknet:
+    driver: bridge

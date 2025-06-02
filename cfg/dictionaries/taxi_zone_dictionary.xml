@@ -1,0 +1,35 @@
+<clickhouse>
+  <dictionary>
+    <name>taxi_zone_dictionary</name>
+    <source>
+      <file>
+        <path>/var/lib/clickhouse/user_files/taxi_zones.csv</path>
+        <format>CSVWithNames</format>
+      </file>
+    </source>
+    <layout>
+      <hashed />
+    </layout>
+    <structure>
+      <id>
+        <name>LocationID</name>
+      </id>
+      <attribute>
+        <name>Borough</name>
+        <type>String</type>
+      </attribute>
+      <attribute>
+        <name>Zone</name>
+        <type>String</type>
+      </attribute>
+      <attribute>
+        <name>service_zone</name>
+        <type>String</type>
+      </attribute>
+    </structure>
+    <lifetime>
+      <min>0</min>
+      <max>0</max>
+    </lifetime>
+  </dictionary>
+</clickhouse>
