@@ -1,0 +1,139 @@
+scripts/validate.sh
+clickhouse-client --query="SELECT host_name, is_leader, is_readonly FROM system.replicas"
+clickhouse-client --query="SELECT * FROM system.clusters"
+clickhouse-client --query="SELECT count() FROM logs_dist"
+
+############################
+Packaging into .deb
+scripts/deploy.sh
+#!/bin/bash
+set -e
+
+dpkg -i /path/to/clickhouse-cluster.deb
+
+systemctl enable clickhouse-server
+systemctl start clickhouse-server
+
+##########################
+configs/query-node/config-query.xml
+Identical to common/config.xml, except:
+
+No ReplicatedMergeTree tables
+
+Runs only Distributed tables
+Query Node
+<clickhouse>
+  <macros>
+    <layer>query</layer>
+  </macros>
+</clickhouse>
+##############
+clickhouse-cluster/
+├── configs/
+│   ├── common/
+│   │   ├── config.xml
+│   │   ├── users.xml
+│   │   ├── macros.xml       # dynamically templated
+│   │   └── metrika.xml
+│   ├── keeper/
+│   │   ├── config-keeper1.xml
+│   │   ├── config-keeper2.xml
+│   │   └── config-keeper3.xml
+│   └── query-node/
+│       └── config-query.xml
+│
+├── dictionaries/
+│   └── geo_dictionary.xml
+│
+├── scripts/
+│   ├── deploy.sh
+│   ├── validate.sh
+│   └── failover-check.sh
+│
+├── kafka/
+│   └── kafka_table.sql
+│
+├── tables/
+│   ├── create_local_tables.sql
+│   └── create_distributed_tables.sql
+│
+├── symlinks/
+│   ├── user_files → /var/lib/clickhouse/user_files/
+│   ├── logs → /var/log/clickhouse-server/
+│   └── data → /var/lib/clickhouse/
+│
+└── package/
+    └── clickhouse-cluster.deb
+
+##############
+dpkg-deb --build clickhouse-cluster package/clickhouse-cluster.deb
+sudo dpkg -i clickhouse-cluster.deb
+
+
+ClickHouseCluster/
+├── zookeeper/
+│   ├── dc1/
+│   │   └── zk1
+│   ├── dc2/
+│   │   └── zk2
+│   ├── dc3/
+│   │   └── zk3
+│   └── config/
+│       └── zoo.cfg              # ZooKeeper ensemble configuration
+│
+├── clickhouse/
+│   ├── dc1/
+│   │   ├── ch1  (shard1-replica1)
+│   │   ├── ch2  (shard2-replica1)
+│   │   └── ch3  (shard3-replica1)
+│   ├── dc2/
+│   │   ├── ch4  (shard1-replica2)
+│   │   ├── ch5  (shard2-replica2)
+│   │   └── ch6  (shard3-replica2)
+│   ├── dc3/
+│   │   ├── ch7  (shard1-replica3)
+│   │   ├── ch8  (shard2-replica3)
+│   │   └── ch9  (shard3-replica3)
+│   └── dc4/
+│       ├── ch10 (shard1-replica4)
+│       ├── ch11 (shard2-replica4)
+│       └── ch12 (shard3-replica4)
+│
+├── query-node/
+│   └── ch-query                # Dedicated query node (no local data)
+│
+├── configs/
+│   ├── metrika.xml            # Cluster topology: shards and replicas
+│   ├── config.xml             # ZooKeeper setup, macros (shard/replica)
+│   ├── users.xml              # User access and profiles
+│   ├── macros.xml             # Per-node: identifies shard and replica
+│   └── remote_servers.xml     # Optional split-out cluster definition
+│
+├── schemas/
+│   ├── logs_local.sql         # ReplicatedMergeTree table definition
+│   └── logs_dist.sql          # Distributed table on query node
+│
+└── monitoring/
+    └── grafana-prometheus/    # Cluster monitoring setup
+
+
+
+You have:
+4 data centers (DC1–DC4)
+12 ClickHouse data nodes (3 per DC)
+1 dedicated query node (separate)
+ZooKeeper ensemble (3–5 nodes across DCs)
+We'll use:
+3 shards (data horizontally partitioned)
+4 replicas per shard, distributed across the 4 DCs
+
+| Shard | DC1 | DC2 | DC3 | DC4  |
+| ----- | --- | --- | --- | ---- |
+| 1     | ch1 | ch4 | ch7 | ch10 |
+| 2     | ch2 | ch5 | ch8 | ch11 |
+| 3     | ch3 | ch6 | ch9 | ch12 |
+
+Each shard has 4 replicas, 1 in each DC.
+Query node (ch-query) uses only Distributed tables to read from this replicated cluster.
+
+This design tolerates complete failure of 1 DC or any 1–2 nodes per shard, and the cluster will continue to serve reads and writes via other replicas.
