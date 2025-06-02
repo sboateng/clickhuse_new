@@ -1,0 +1,345 @@
+
+
+
+
+Data config.xml
+Keeper 
+QUERY 
+
+Architecture
+======================
+Why setup 4 nodes?
+In ClickHouse, nodes cannot act as replicas for multiple shards.
+a node can be a replica for one shard only:
+
+Number of Nodes = Replicas × Shards
+
+
+macros are variables we can set for distribution config 
+
+volume mount is bidirectional. and if it doesnt exits docker will create it 
+
+
+
+
+start cluster 
+docker compose up -d ch1 ch2 ch3 ch4 
+
+RESTART (make change and restart is OK )
+docker compose restart zookeeper ch1 ch2 ch3 ch
+
+
+docker stop $(docker ps -a --filter "name=clickhouse" -q) && docker rm $(docker ps -a --filter "name=clickhouse" -q)
+
+docker volume rm -f $(docker volume ls -q)
+
+find . -type f -name '*.xml' -exec grep -H -A 4 '<macros>' {} +
+find . -type f -name '*preprocessed.xml*' -exec rm -f {} +
+
+
+
+
+docker network create --subnet=172.18.0.0/24 mynet
+
+docker system prune***
+
+client connect
+connect dirtectly to node 
+docker exec -it clickhouse-ch1-1 clickhouse-client
+
+
+docker compose run --rm client --host ch2 --user admin --password admin123
+docker compose run --rm client --host ch1
+-------
+client:
+  image: yandex/clickhouse-client:18.16.1
+  depends_on:
+    - ch1
+  command: ["clickhouse-client", "--host", "ch1"]
+!
+docker compose up client
+--------
+
+
+TO DO 
+remove version from compose 
+have desired container name (careful if using dynamic naming --scale)
+    ch1:
+       container_name: ch1 
+
+
+check version 
+ docker compose run --rm client clickhouse-client --version
+ docker compose run --rm client clickhouse-client --host ch1 --query "SELECT version()"
+
+
+find . -type f -name '*.xml' -exec grep -H -A 4 '<macros>' {} +
+find . -type f -name '*preprocessed.xml*' -exec rm -f {} +
+
+
+ALL config at One place 
+https://medium.com/@alireza.pourchali/how-to-set-up-a-high-availability-clickhouse-cluster-with-docker-8e42915fdce5
+
+TEST write 
+ocker run --rm -v $(pwd)/data:/mnt alpine touch /mnt/test.txt
+
+
+file OWNER 
+    -e CLICKHOUSE_DO_NOT_CHOWN=1 \
+    -e CLICKHOUSE_UID=101 \
+    -e CLICKHOUSE_GID=101 \
+
+docker compose down
+docker compose up -d
+
+
+docker run --rm -d --name ch-temp clickhouse/clickhouse-server:25.4
+docker cp ch-temp:/etc/clickhouse-server ./cfg
+docker stop ch-temp
+
+
+clickhouse-data-pw-1:
+  image: clickhouse/clickhouse-server:25.4
+  ports:
+    - "8123:8123"
+    - "9000:9000"
+  volumes:
+    - ./cfg:/etc/clickhouse-server
+    - ./data:/var/lib/clickhouse
+    - ./logs:/var/log/clickhouse-server
+  networks:
+    - clicknet
+
+OFFICE 
+https://github.com/ClickHouse/examples/blob/main/docker-compose-recipes/recipes/cluster_2S_2R_ch_proxy/docker-compose.yaml
+
+    user: "101:101"
+    container_name: clickhouse-01
+    hostname: clickhouse-01
+    networks:
+      cluster_2S_2R_ch_proxy:
+        ipv4_address: 192.168.9.1
+    volumes:
+      - ${PWD}/fs/volumes/clickhouse-01/etc/clickhouse-server/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ${PWD}/fs/volumes/clickhouse-01/etc/clickhouse-server/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    depends_on:
+      - clickhouse-keeper-01
+      - clickhouse-keeper-02
+      - clickhouse-keeper-03
+	  
+GRAFANA
+https://clickhouse.com/docs/integrations/grafana
+https://github.com/ClickHouse/examples/blob/main/docker-compose-recipes/recipes/ch-and-grafana/docker-compose.yaml  
+	  
+	  
+LDAP 
+https://github.com/ClickHouse/examples/blob/main/docker-compose-recipes/recipes/ch-and-openldap/README.md
+
+DICTIONARIES 
+https://clickhouse.com/docs/tutorial
+https://clickhouse.com/docs/sql-reference/dictionaries#dictionary-sources
+https://clickhouse.com/docs/sql-reference/formats
+https://clickhouse.com/docs/tutorial
+In order for ClickHouse to access an HTTPS resource, you must configure openSSL in the server configuration.
+1. Create the Dictionary Definition File
+Create a dictionary file like /etc/clickhouse-server/dictionaries/my_dictionary.xml. This file defines the dictionary structure, source, layout, and more.
+Reference Dictionary File in config.xml
+Edit your main ClickHouse configuration (usually /etc/clickhouse-server/config.xml) to include the dictionary file:
+<dictionaries_config>/etc/clickhouse-server/dictionaries/*.xml</dictionaries_config>
+This enables all dictionary XML files in that folde
+BEST PRACTICE refrence instead of creating in Bulk config file 
+
+
+VOLUME DICTIONARIES✅ Example Folder Layout for Docker
+if you have it as file
+volumes:
+  - ./cfg:/etc/clickhouse-server
+  - ./dictionaries:/etc/clickhouse-server/dictionaries
+
+Place dictionary config files (XML or SQL) in a common location (e.g., /etc/clickhouse-server/dictionaries/)
+
+Load them in config.xml:
+<dictionaries_config>/etc/clickhouse-server/dictionaries/*.xml</dictionaries_config>
+Use LIFETIME(MIN 300 MAX 600) to avoid reloading on every query.
+Use SOURCE(FILE(...)) with bind mounts in Docker for better performance & availability.
+
+
+https://clickhouse.com/docs/tutorial   EXAMPLE Dictionary
+
+DDL ????************
+
+
+
+DOCKER VOLUME DESIGN 
+. Stop sharing the same volume across containers
+Instead of:
+
+volumes:
+  - ./data:/var/lib/clickhouse  # ❌ Shared across all nodes
+You should use separate directories for each node:
+
+clickhouse-node-1:
+  volumes:
+    - ./data/node1:/var/lib/clickhouse
+
+clickhouse-node-2:
+  volumes:
+    - ./data/node2:/var/lib/clickhouse
+2. Use ReplicatedMergeTree for replication
+
+CREATE TABLE trips ON CLUSTER your_cluster
+(
+  ...
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/trips', '{replica}')
+PARTITION BY toYYYYMM(pickup_date)
+ORDER BY pickup_datetime;
+3. Use Distributed for querying across shards
+sql
+CREATE TABLE trips_dist ON CLUSTER your_cluster
+AS trips
+ENGINE = Distributed('your_cluster', 'default', 'trips', rand());
+
+
+
+
+
+BEST PRACTRICES 
+Important Tips
+Only use this for small, local setups or testing.
+
+The server will reject the entire config if there’s any error inside this <dictionary> block.
+
+
+QUERY NODES 
+Or just avoid creating any MergeTree tables here and only use Distributed
+Optional: Add Read-Only User to Query Node
+Add to cluster and disable Disable storage on the query node
+
+
+USERS
+
+SELECT name FROM system.users;
+
+clickhouse-client --user=default
+docker exec -it clickhouse-clickhouse-data-tt-1-1 cat /etc/clickhouse-server/users.xml
+
+This is part of a <networks> block in a ClickHouse <user> definition — it controls which hosts or IPs are allowed to authenticate as that user.
+example 
+<host_regexp>(chi-clickhouse-[^.]+\d+-\d+|clickhouse\-clickhouse)\.flow-visibility\.svc\.cluster\.local$</host_regexp>
+This is a regular expression that matches hostnames like: (MOSLY KUBE)
+chi-clickhouse-0-0.flow-visibility.svc.cluster.local
+chi-clickhouse-1-3.flow-visibility.svc.cluster.local
+!
+<host>node1</host>
+<port>9000</port>
+<user>awesome</user>
+<password>awesomexxx</password>
+</replica>
+<yandex>
+
+Or you can configure passwordless user in the cluster description and restrict access for this user to only from CH nodes.
+
+<yandex>
+    <users>
+        <default>
+            <networks>
+                <ip>::1</ip>
+                <ip>127.0.0.1</ip>
+                 <ip>x</ip>
+                 <ip>y</ip>
+				 
+				 
+				 
+				 
+				 
+
+READ https://github.com/Altinity/clickhouse-operator/issues?q=is%3Aissue+is%3Aopen+host_regexp
+
+#########################################
+
+REFRESH CONFIG 
+docker restart <container_name>
+
+docker restart clickhouse-ch1-1
+Or if you’re using Compose:
+
+docker compose restart ch1
+
+
+UPGRADE DOCKER 
+
+✅ 1. Check current version
+Optional, but useful for comparison:
+
+
+docker compose run --rm client clickhouse-client --host ch1 --query "SELECT version()"
+
+✅ 2. Update the Docker image version
+Edit your docker-compose.yaml and change the image version for each ClickHouse node (e.g., ch1, ch2, etc.).
+
+Example:
+
+ch1:
+  image: clickhouse/clickhouse-server:23.12
+  ...
+Replace 23.12 with your desired version from: https://hub.docker.com/r/clickhouse/clickhouse-server/tags
+
+✅ 3. Pull the new image
+Pull the latest version specified in your compose file:
+
+docker compose pull
+✅ 4. Stop the running containers
+This stops your current ClickHouse containers (but keeps your data volumes):
+
+
+docker compose down
+✅ 5. Start ClickHouse with the new version
+After updating the image version and pulling it:
+
+
+docker compose up -d
+This launches the containers using the upgraded image, while reusing your configuration and persistent data.
+
+✅ 6. Verify upgrade
+Confirm the server is running the new version:
+
+docker compose run --rm client clickhouse-client --host ch1 --query "SELECT version()"
+⚠️ Important Notes:
+Back up your data before upgrading (especially in production).
+
+
+
+
+
+
+ <users>
+        <clickhouse_operator>
+            <networks>
+                <ip>10.193.192.189</ip>
+            </networks>
+            <password_sha256_hex>716b36073a90c6fe1d445ac1af85f4777c5b7a155cea359961826a030513e448</password_sha256_hex>
+            <profile>clickhouse_operator</profile>
+        </clickhouse_operator>
+        <default>
+            <access_management>1</access_management>
+            <named_collection_control>1</named_collection_control>
+            <networks>
+                <ip>::1</ip>
+                <ip>127.0.0.1</ip>
+                <ip>10.193.192.10</ip>
+                <ip>10.193.192.138</ip>
+                <ip>10.193.197.20</ip>
+                <ip>10.193.192.9</ip>
+            </networks>
+            <password remove="1"></password>
+            <password_sha256_hex>cd26bd62929410fa670bc83fc6b73747ca64aa777b83c42e82ba35dc9cf682e6</password_sha256_hex>
+            <profile>default</profile>
+            <quota>default</quota>
+            <show_named_collections>1</show_named_collections>
+            <show_named_collections_secrets>1</show_named_collections_secrets>
+        </default>
+    </users>
