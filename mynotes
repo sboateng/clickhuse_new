@@ -343,3 +343,84 @@ Back up your data before upgrading (especially in production).
             <show_named_collections_secrets>1</show_named_collections_secrets>
         </default>
     </users>
+
+
+
+QUERIES
+====================
+SELECT * FROM system.clusters
+
+CREATE DATABASE pokemon_cluster on cluster pokemon
+SHOW TABLES FROM my_database;
+
+USE my_database;
+SHOW TABLES;
+
+select * from pokemon_cluster.event_local
+
+select * from pokemon_cluster.event_local_distributed
+
+CREATE TABLE pokemon_cluster.event_local on cluster pokemon
+(
+  id UInt64,
+  time DateTime,
+  type UInt16,
+  pokemon_id UInt16
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/event_local', '{replica}') 
+PARTITION BY toYYYYMM(time)
+ORDER BY (toYYYYMM(time), id);
+
+CREATE TABLE pokemon_cluster.event_distributed_sam on cluster pokemon
+(
+  id UInt64,
+  time DateTime,
+  type UInt16,
+  pokemon_id UInt16
+)
+ENGINE = Distributed(pokemon, pokemon_cluster, event_sam, rand())
+
+-- we are connected to ch1
+INSERT INTO pokemon_cluster.event_local VALUES(122, '2018-01-01 00:00:00', 44, 7777)
+
+INSERT INTO pokemon_cluster.event_distributed VALUES(22222222, '2019-01-01 00:00:00', 2, 222)
+INSERT INTO pokemon_cluster.event_distributed VALUES(44444444, '2019-01-01 00:00:00', 2, 222)
+
+
+
+Once the table is successfully created across nodes, execute the command:
+
+system sync replica on cluster '{cluster}' <db_name>.<table_name> strict ;
+
+This command ensures synchronization across replicas and should rectify the "REPLICA_ALREADY_EXISTS" error.
+
+
+NORMAL TABLE EXPLAIN SHARDING 
+CREATE TABLE distributed_example
+(
+    ID UInt32,
+    Name String
+) ENGINE = MergeTree()
+ORDER BY (ID);
+
+CREATE TABLE distributed_example_engine
+(
+    ID UInt32,
+    Name String
+) 
+ENGINE = Distributed('replicated_cluster', 'default', distributed_example, rand());
+
+sharding_key – rand() (Based on the value obtained from rand() function, the rows are stored in shards)
+
+SHARDING 
+If your cluster is replicated, each replica of a shard gets the same rows, but only one shard per row.
+Distributed('replicated_cluster', 'default', distributed_example, ID)
+How to Get Consistent Distribution (Optional)
+If you want a deterministic and even spread
+This will assign the same ID to the same shard every time — predictable and repeatable.
+(rand()) is the sharding key — it determines which shard each row goes to
+So by default:
+Each row only exists on one shard, not all.
+
+
+
